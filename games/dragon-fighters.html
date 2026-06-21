@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dragon Fighters - Saiyan Showdown</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #0a0a14;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    font-family: 'Trebuchet MS', Arial, sans-serif;
+    color:#fff;
+    min-height:100vh;
+    padding:14px;
+    user-select:none;
+  }
+  h1 {
+    margin-bottom:6px;
+    letter-spacing:2px;
+    background: linear-gradient(90deg,#ffcb3d,#ff7b00,#ffcb3d);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow: 0 0 18px rgba(255,180,0,0.35);
+    font-size:30px;
+  }
+  #subtitle{
+    color:#8aa0c8;
+    margin-bottom:10px;
+    font-size:13px;
+    letter-spacing:1px;
+  }
+  #gameWrap{
+    position:relative;
+    border:3px solid #2a3550;
+    border-radius:10px;
+    box-shadow: 0 0 35px rgba(60,90,160,0.35), inset 0 0 60px rgba(0,0,0,0.6);
+    overflow:hidden;
+  }
+  canvas{
+    display:block;
+    background:#000;
+  }
+  #overlayUI{
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    pointer-events:none;
+  }
+  .hudTop{
+    position:absolute;
+    top:10px; left:10px; right:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    pointer-events:none;
+  }
+  .barBox{
+    width:38%;
+  }
+  .barBox.right{ text-align:right; }
+  .nameRow{
+    display:flex;
+    justify-content:space-between;
+    font-size:14px;
+    font-weight:bold;
+    margin-bottom:3px;
+    text-shadow:1px 1px 2px #000;
+  }
+  .barBox.right .nameRow{ flex-direction:row-reverse; }
+  .ssjTag{
+    color:#ffe24d;
+    font-size:11px;
+    margin-left:6px;
+    text-shadow:0 0 6px #ffae00;
+  }
+  .healthOuter{
+    width:100%;
+    height:18px;
+    background:#241313;
+    border:2px solid #000;
+    border-radius:4px;
+    overflow:hidden;
+    box-shadow:inset 0 0 6px rgba(0,0,0,0.8);
+  }
+  .healthInner{
+    height:100%;
+    background:linear-gradient(90deg,#37d637,#a4ff3d);
+    transition: width 0.15s ease-out, background 0.3s;
+  }
+  .barBox.right .healthInner{ float:right; }
+  #centerInfo{
+    position:absolute;
+    top:10px; left:50%;
+    transform:translateX(-50%);
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+    color:#ffd24a;
+    text-shadow:1px 1px 3px #000;
+  }
+  #timer{
+    font-size:18px;
+    color:#fff;
+  }
+  #gameOverScreen{
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.78);
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+  }
+  #gameOverScreen h2{
+    font-size:42px;
+    color:#ffcb3d;
+    text-shadow:0 0 20px #ff7b00;
+    margin-bottom:10px;
+  }
+  #gameOverScreen p{
+    color:#ccd6ee;
+    margin-bottom:18px;
+    font-size:15px;
+  }
+  #restartBtn{
+    padding:10px 26px;
+    font-size:16px;
+    font-weight:bold;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:linear-gradient(90deg,#ff7b00,#ffcb3d);
+    color:#1a1a1a;
+    box-shadow:0 0 18px rgba(255,150,0,0.6);
+    transition:transform 0.1s;
+  }
+  #restartBtn:hover{ transform:scale(1.06); }
+  #controlsPanel{
+    margin-top:14px;
+    display:flex;
+    gap:36px;
+    font-size:13px;
+    color:#9fb0d8;
+    flex-wrap:wrap;
+    justify-content:center;
+    max-width:900px;
+  }
+  #controlsPanel .col{ min-width:230px; }
+  #controlsPanel b{ color:#ffd24a; }
+  #controlsPanel .legend{
+    margin-bottom:4px;
+    font-weight:bold;
+    color:#fff;
+    border-bottom:1px solid #2a3550;
+    padding-bottom:3px;
+  }
+  #selectPanel{
+    margin-top:10px;
+    display:flex;
+    gap:50px;
+    font-size:13px;
+    color:#cfe0ff;
+  }
+  .selBtn{
+    background:#1c2740;
+    border:1px solid #3a4f80;
+    color:#fff;
+    padding:6px 12px;
+    border-radius:5px;
+    margin:0 3px;
+    cursor:pointer;
+    font-size:12px;
+  }
+  .selBtn.active{
+    background:linear-gradient(90deg,#ff7b00,#ffcb3d);
+    color:#1a1a1a;
+    font-weight:bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>⚡ DRAGON FIGHTERS: SAIYAN SHOWDOWN ⚡</h1>
+<div id="subtitle">A self-contained canvas fighting game &mdash; no external assets</div>
+
+<div id="selectPanel">
+  <div>
+    <span style="color:#ffae5c;font-weight:bold;">Player 1:</span>
+    <button class="selBtn" data-p="1" data-c="goku">Goku</button>
+    <button class="selBtn" data-p="1" data-c="gohan">Gohan</button>
+    <button class="selBtn" data-p="1" data-c="goten">Goten</button>
+  </div>
+  <div>
+    <span style="color:#9cc8ff;font-weight:bold;">Player 2:</span>
+    <button class="selBtn" data-p="2" data-c="vegeta">Vegeta</button>
+    <button class="selBtn" data-p="2" data-c="trunks">Trunks</button>
+  </div>
+</div>
+
+<div id="gameWrap">
+  <canvas id="gameCanvas" width="900" height="480"></canvas>
+  <div id="overlayUI">
+    <div class="hudTop">
+      <div class="barBox">
+        <div class="nameRow"><span id="p1NameLabel">GOKU</span><span id="p1Ssj" class="ssjTag"></span></div>
+        <div class="healthOuter"><div id="p1Health" class="healthInner" style="width:100%"></div></div>
+      </div>
+      <div class="barBox right">
+        <div class="nameRow"><span id="p2NameLabel">VEGETA</span><span id="p2Ssj" class="ssjTag"></span></div>
+        <div class="healthOuter"><div id="p2Health" class="healthInner" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div id="centerInfo"><div id="timer">60</div></div>
+  </div>
+  <div id="gameOverScreen">
+    <h2 id="winnerText">PLAYER WINS!</h2>
+    <p>Press the button or hit "R" to fight again</p>
+    <button id="restartBtn">REMATCH</button>
+  </div>
+</div>
+
+<div id="controlsPanel">
+  <div class="col">
+    <div class="legend">Player 1 (left side)</div>
+    <b>W</b> Jump &nbsp; <b>A</b> Left &nbsp; <b>D</b> Right &nbsp; <b>S</b> Crouch/Block<br>
+    <b>F</b> Attack &nbsp; <b>G</b> Transform (Super Saiyan)
+  </div>
+  <div class="col">
+    <div class="legend">Player 2 (right side)</div>
+    <b>&uarr;</b> Jump &nbsp; <b>&larr;</b> Left &nbsp; <b>&rarr;</b> Right &nbsp; <b>&darr;</b> Crouch/Block<br>
+    <b>M</b> Attack &nbsp; <b>V</b> Transform (Super Saiyan)
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ============================================================
+//  CANVAS SETUP
+// ============================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+const GROUND_Y = H - 70;
+
+// ============================================================
+//  CHARACTER DEFINITIONS (color palettes)
+// ============================================================
+const CHAR_DEFS = {
+  goku: {
+    name: "Goku",
+    hair: "#15110d",
+    ssjHair: "#ffe24d",
+    gi: "#ff7b00",          // orange gi
+    giShade: "#cc6200",
+    undershirt: "#1f5fbf",  // blue undershirt
+    belt: "#1f5fbf",
+    pants: "#ff7b00",
+    boots: "#1f5fbf",
+    skin: "#ffcc99"
+  },
+  gohan: {
+    name: "Gohan",
+    hair: "#15110d",
+    ssjHair: "#ffe24d",
+    gi: "#6a3fb5",          // purple gi (teen Gohan)
+    giShade: "#4f2c8c",
+    undershirt: "#2faa4a",  // green undershirt
+    belt: "#2c2c2c",
+    pants: "#6a3fb5",
+    boots: "#2c2c2c",
+    skin: "#ffcc99"
+  },
+  goten: {
+    name: "Goten",
+    hair: "#15110d",
+    ssjHair: "#ffe24d",
+    gi: "#ff7b00",
+    giShade: "#cc6200",
+    undershirt: "#1f5fbf",
+    belt: "#cc2222",
+    pants: "#1f5fbf",
+    boots: "#cc2222",
+    skin: "#ffcc99"
+  },
+  vegeta: {
+    name: "Vegeta",
+    hair: "#15110d",
+    ssjHair: "#ffe24d",
+    gi: "#1d3ea8",          // blue bodysuit
+    giShade: "#142c80",
+    undershirt: "#e6e6e6",  // white armor chest
+    belt: "#d6b23a",
+    pants: "#1d3ea8",
+    boots: "#e6e6e6",
+    skin: "#ffcc99"
+  },
+  trunks: {
+    name: "Trunks",
+    hair: "#b89be0",        // lavender hair
+    ssjHair: "#ffe24d",
+    gi: "#1c1c1c",          // black jacket
+    giShade: "#000000",
+    undershirt: "#7b2e2e",  // dark red undershirt
+    belt: "#3a3a3a",
+    pants: "#3a4a6b",
+    boots: "#1c1c1c",
+    skin: "#ffcc99"
+  }
+};
+
+// ============================================================
+//  FIGHTER CLASS
+// ============================================================
+class Fighter {
+  constructor(charKey, x, facing, controls, side){
+    this.side = side;            // 'p1' or 'p2'
+    this.setCharacter(charKey);
+    this.x = x;
+    this.y = GROUND_Y;
+    this.vx = 0;
+    this.vy = 0;
+    this.width = 56;
+    this.height = 110;
+    this.facing = facing;        // 1 = right, -1 = left
+    this.onGround = true;
+    this.crouching = false;
+    this.health = 100;
+    this.ssj = false;
+    this.ssjAuraTimer = 0;       // for transform flash
+    this.attacking = false;
+    this.attackTimer = 0;
+    this.attackCooldown = 0;
+    this.hitThisSwing = false;
+    this.controls = controls;    // key map
+    this.walkCycle = 0;
+    this.hitFlash = 0;
+    this.knockback = 0;
+    this.alive = true;
+  }
+
+  setCharacter(charKey){
+    this.charKey = charKey;
+    this.def = CHAR_DEFS[charKey];
+  }
+
+  get baseSpeed(){ return this.ssj ? 5.4 : 3.8; }
+  get jumpPower(){ return this.ssj ? -13.5 : -12; }
+  get attackDamage(){ return this.ssj ? 11 : 7; }
+
+  transform(){
+    if(!this.ssj){
+      this.ssj = true;
+      this.ssjAuraTimer = 40; // big burst frames
+    }
+  }
+
+  startAttack(){
+    if(this.attackCooldown <= 0 && !this.attacking){
+      this.attacking = true;
+      this.attackTimer = 14;
+      this.hitThisSwing = false;
+      this.attackCooldown = 28;
+    }
+  }
+
+  update(opponent, keys){
+    const c = this.controls;
+
+    // Determine facing toward opponent automatically when not attacking-locked
+    if(opponent){
+      this.facing = (opponent.x >= this.x) ? 1 : -1;
+    }
+
+    // Crouch / block
+    this.crouching = !!keys[c.down];
+
+    // Horizontal movement (disabled while crouching or mid-attack for stability)
+    let moveDir = 0;
+    if(!this.crouching){
+      if(keys[c.left])  moveDir -= 1;
+      if(keys[c.right]) moveDir += 1;
+    }
+    this.vx = moveDir * this.baseSpeed;
+
+    // Jump
+    if(keys[c.up] && this.onGround && !this.crouching){
+      this.vy = this.jumpPower;
+      this.onGround = false;
+    }
+
+    // Attack input
+    if(keys[c.attack]){
+      this.startAttack();
+    }
+
+    // Transform input handled externally (one-shot key), but keep aura decay here
+    if(this.ssjAuraTimer > 0) this.ssjAuraTimer--;
+
+    // Physics: gravity
+    this.vy += 0.62;
+    this.y += this.vy;
+    this.x += this.vx;
+
+    // Ground collision
+    if(this.y >= GROUND_Y){
+      this.y = GROUND_Y;
+      this.vy = 0;
+      this.onGround = true;
+    }
+
+    // Screen bounds
+    const half = this.width/2;
+    if(this.x < half) this.x = half;
+    if(this.x > W - half) this.x = W - half;
+
+    // Walk animation cycle
+    if(moveDir !== 0 && this.onGround) this.walkCycle += 0.25;
+    else this.walkCycle *= 0.8;
+
+    // Attack timer countdown
+    if(this.attacking){
+      this.attackTimer--;
+      // Apply damage at the "active" frame window
+      if(this.attackTimer <= 9 && this.attackTimer >= 4 && !this.hitThisSwing && opponent){
+        if(this.checkHit(opponent)){
+          opponent.takeDamage(this.attackDamage, this);
+          this.hitThisSwing = true;
+        }
+      }
+      if(this.attackTimer <= 0){
+        this.attacking = false;
+      }
+    }
+    if(this.attackCooldown > 0) this.attackCooldown--;
+
+    if(this.hitFlash > 0) this.hitFlash--;
+
+    // Knockback decay
+    if(this.knockback !== 0){
+      this.x += this.knockback;
+      this.knockback *= 0.8;
+      if(Math.abs(this.knockback) < 0.1) this.knockback = 0;
+      const half2 = this.width/2;
+      if(this.x < half2) this.x = half2;
+      if(this.x > W - half2) this.x = W - half2;
+    }
+  }
+
+  checkHit(opponent){
+    // Attack reaches forward in facing direction
+    const reach = 78;
+    const attackX = this.x + this.facing * reach;
+    const dx = Math.abs(attackX - opponent.x);
+    const dy = Math.abs((this.y - 55) - (opponent.y - 55));
+    const facingCorrect = (this.facing === 1 && opponent.x > this.x) ||
+                          (this.facing === -1 && opponent.x < this.x);
+    return facingCorrect && dx < 60 && dy < 70;
+  }
+
+  takeDamage(amount, attacker){
+    if(this.crouching){
+      amount *= 0.2; // blocking reduces damage drastically
+    }
+    this.health -= amount;
+    if(this.health < 0) this.health = 0;
+    this.hitFlash = 10;
+    this.knockback = -attacker.facing * 6;
+    if(this.health <= 0) this.alive = false;
+  }
+
+  // ----------------------------------------------------------
+  // DRAWING
+  // ----------------------------------------------------------
+  draw(ctx){
+    const d = this.def;
+    const x = this.x;
+    const groundY = this.y;
+    const facing = this.facing;
+    const bob = this.onGround ? Math.sin(this.walkCycle) * 3 : 0;
+    const crouchOffset = this.crouching ? 18 : 0;
+    const bodyTop = groundY - this.height + crouchOffset;
+
+    ctx.save();
+    ctx.translate(x, 0);
+    ctx.scale(facing, 1); // flip horizontally to face direction
+
+    // ---- SSJ AURA ----
+    if(this.ssj){
+      const pulse = (Math.sin(Date.now()/90 + x) + 1) / 2;
+      const auraR = 46 + pulse * 8 + (this.ssjAuraTimer>0 ? this.ssjAuraTimer*0.6 : 0);
+      const grad = ctx.createRadialGradient(0, bodyTop + this.height/2 - crouchOffset, 5, 0, bodyTop + this.height/2 - crouchOffset, auraR);
+      grad.addColorStop(0, "rgba(255,230,90,0.55)");
+      grad.addColorStop(0.6, "rgba(255,200,40,0.22)");
+      grad.addColorStop(1, "rgba(255,200,40,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(0, bodyTop + this.height/2 - crouchOffset, auraR*0.7, auraR, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // flickering aura particles
+      ctx.fillStyle = "rgba(255,240,140,0.85)";
+      for(let i=0;i<5;i++){
+        const ang = (Date.now()/120 + i*1.3) % (Math.PI*2);
+        const px = Math.cos(ang) * (24 + i*4);
+        const py = bodyTop + this.height - 10 - (((Date.now()/14 + i*40) % 90));
+        ctx.beginPath();
+        ctx.arc(px, py, 2.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    // ---- HIT FLASH overlay prep ----
+    const flash = this.hitFlash > 0;
+
+    // ---- LEGS ----
+    const legH = 40 - crouchOffset*0.4;
+    ctx.fillStyle = flash ? "#ff4444" : d.pants;
+    // back leg
+    ctx.fillRect(-14, bodyTop + this.height - legH - crouchOffset, 12, legH);
+    // front leg
+    ctx.fillRect(2, bodyTop + this.height - legH - crouchOffset, 12, legH);
+    // boots
+    ctx.fillStyle = flash ? "#ff8888" : d.boots;
+    ctx.fillRect(-16, bodyTop + this.height - 8 - crouchOffset, 16, 8);
+    ctx.fillRect(0, bodyTop + this.height - 8 - crouchOffset, 16, 8);
+
+    // ---- TORSO ----
+    const torsoH = this.height * 0.42;
+    const torsoTop = bodyTop + this.height*0.22 + bob*0.2;
+    ctx.fillStyle = flash ? "#ff5555" : d.gi;
+    ctx.fillRect(-18, torsoTop, 36, torsoH);
+    // undershirt v-strip
+    ctx.fillStyle = flash ? "#ffaaaa" : d.undershirt;
+    ctx.fillRect(-6, torsoTop, 12, torsoH*0.8);
+    // belt
+    ctx.fillStyle = d.belt;
+    ctx.fillRect(-18, torsoTop + torsoH - 6, 36, 6);
+
+    // ---- ARMS ----
+    ctx.fillStyle = flash ? "#ff5555" : d.giShade;
+    // back arm
+    ctx.save();
+    ctx.translate(-16, torsoTop + 6);
+    ctx.rotate(this.attacking ? -0.3 : Math.sin(this.walkCycle)*0.2);
+    ctx.fillRect(-6, 0, 10, 34);
+    ctx.fillStyle = d.skin;
+    ctx.fillRect(-6, 32, 10, 9);
+    ctx.restore();
+
+    // front arm (extends during attack to show punch)
+    ctx.save();
+    ctx.translate(16, torsoTop + 6);
+    let armAngle = -Math.sin(this.walkCycle)*0.2;
+    let armExtend = 34;
+    if(this.attacking){
+      const t = 1 - Math.max(0, this.attackTimer - 4)/10;
+      armAngle = -1.45 * Math.min(1, t*1.6);
+      armExtend = 34 + 18*Math.min(1, t*1.6);
+    }
+    ctx.rotate(armAngle);
+    ctx.fillStyle = flash ? "#ff5555" : d.gi;
+    ctx.fillRect(-5, 0, 10, armExtend);
+    ctx.fillStyle = d.skin;
+    ctx.beginPath();
+    ctx.arc(0, armExtend, 7, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // ---- HEAD / FACE ----
+    const headCY = torsoTop - 16;
+    ctx.fillStyle = d.skin;
+    ctx.beginPath();
+    ctx.arc(0, headCY, 15, 0, Math.PI*2);
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = "#1a1a1a";
+    ctx.beginPath();
+    ctx.arc(6, headCY - 2, 1.6, 0, Math.PI*2);
+    ctx.fill();
+
+    // ---- HAIR (spiky, character-distinct) ----
+    const hairColor = this.ssj ? d.ssjHair : d.hair;
+    ctx.fillStyle = hairColor;
+    ctx.shadowColor = this.ssj ? "rgba(255,230,80,0.9)" : "transparent";
+    ctx.shadowBlur = this.ssj ? 14 : 0;
+    drawHairStyle(ctx, this.charKey, headCY);
+    ctx.shadowBlur = 0;
+
+    ctx.restore(); // end flip transform
+
+    // Name tag floating above
+    ctx.save();
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillStyle = this.ssj ? "#ffe24d" : "#ffffff";
+    ctx.shadowColor = "#000";
+    ctx.shadowBlur = 3;
+    ctx.fillText(d.name + (this.ssj ? " (SSJ)" : ""), x, bodyTop - 26);
+    ctx.restore();
+  }
+}
+
+// Distinct spiky hair silhouettes per character, drawn relative to head center (0, headCY)
+function drawHairStyle(ctx, key, headCY){
+  ctx.beginPath();
+  switch(key){
+    case "goku":
+      // classic upward spikes
+      ctx.moveTo(-16, headCY-2);
+      ctx.lineTo(-20, headCY-22);
+      ctx.lineTo(-10, headCY-10);
+      ctx.lineTo(-8, headCY-30);
+      ctx.lineTo(0, headCY-12);
+      ctx.lineTo(2, headCY-34);
+      ctx.lineTo(10, headCY-14);
+      ctx.lineTo(14, headCY-26);
+      ctx.lineTo(17, headCY-6);
+      ctx.lineTo(15, headCY+4);
+      ctx.lineTo(-16, headCY+4);
+      ctx.closePath();
+      break;
+    case "gohan":
+      // similar but slightly neater spikes, swept side
+      ctx.moveTo(-16, headCY-2);
+      ctx.lineTo(-18, headCY-18);
+      ctx.lineTo(-8, headCY-9);
+      ctx.lineTo(-4, headCY-26);
+      ctx.lineTo(4, headCY-10);
+      ctx.lineTo(10, headCY-24);
+      ctx.lineTo(16, headCY-4);
+      ctx.lineTo(15, headCY+4);
+      ctx.lineTo(-16, headCY+4);
+      ctx.closePath();
+      break;
+    case "goten":
+      // small kid spikes
+      ctx.moveTo(-15, headCY-2);
+      ctx.lineTo(-16, headCY-16);
+      ctx.lineTo(-7, headCY-8);
+      ctx.lineTo(-2, headCY-22);
+      ctx.lineTo(5, headCY-9);
+      ctx.lineTo(11, headCY-19);
+      ctx.lineTo(15, headCY-2);
+      ctx.lineTo(15, headCY+4);
+      ctx.lineTo(-15, headCY+4);
+      ctx.closePath();
+      break;
+    case "vegeta":
+      // flame swept-up hair
+      ctx.moveTo(-17, headCY+2);
+      ctx.lineTo(-19, headCY-8);
+      ctx.lineTo(-9, headCY-6);
+      ctx.lineTo(-12, headCY-26);
+      ctx.lineTo(-1, headCY-10);
+      ctx.lineTo(2, headCY-32);
+      ctx.lineTo(9, headCY-12);
+      ctx.lineTo(15, headCY-22);
+      ctx.lineTo(16, headCY-2);
+      ctx.lineTo(15, headCY+4);
+      ctx.lineTo(-17, headCY+4);
+      ctx.closePath();
+      break;
+    case "trunks":
+      // longer side-swept lavender hair
+      ctx.moveTo(-19, headCY+10);
+      ctx.lineTo(-20, headCY-14);
+      ctx.lineTo(-10, headCY-8);
+      ctx.lineTo(-6, headCY-24);
+      ctx.lineTo(4, headCY-10);
+      ctx.lineTo(10, headCY-22);
+      ctx.lineTo(16, headCY-4);
+      ctx.lineTo(18, headCY+8);
+      ctx.lineTo(10, headCY+4);
+      ctx.lineTo(-16, headCY+4);
+      ctx.closePath();
+      break;
+    default:
+      ctx.arc(0, headCY-8, 14, Math.PI, 0);
+  }
+  ctx.fill();
+}
+
+// ============================================================
+//  GAME STATE
+// ============================================================
+const keys = {};
+
+const controlsP1 = { up:'w', left:'a', right:'d', down:'s', attack:'f' };
+const controlsP2 = { up:'arrowup', left:'arrowleft', right:'arrowright', down:'arrowdown', attack:'m' };
+
+let player1 = new Fighter('goku', 220, 1, controlsP1, 'p1');
+let player2 = new Fighter('vegeta', 680, -1, controlsP2, 'p2');
+
+let gameOver = false;
+let timeLeft = 60;
+let lastTimeTick = performance.now();
+
+// ============================================================
+//  INPUT HANDLING
+// ============================================================
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+
+  if(k === 'g') player1.transform();
+  if(k === 'v') player2.transform();
+  if(k === 'r' && gameOver) restartGame();
+});
+
+window.addEventListener('keyup', (e) => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+// Character selection buttons
+document.querySelectorAll('.selBtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.getAttribute('data-p');
+    const c = btn.getAttribute('data-c');
+    if(p === '1'){
+      player1.setCharacter(c);
+      document.querySelectorAll('.selBtn[data-p="1"]').forEach(b=>b.classList.remove('active'));
+    } else {
+      player2.setCharacter(c);
+      document.querySelectorAll('.selBtn[data-p="2"]').forEach(b=>b.classList.remove('active'));
+    }
+    btn.classList.add('active');
+    updateNameLabels();
+  });
+});
+// Set initial active buttons
+document.querySelector('.selBtn[data-p="1"][data-c="goku"]').classList.add('active');
+document.querySelector('.selBtn[data-p="2"][data-c="vegeta"]').classList.add('active');
+
+document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+function updateNameLabels(){
+  document.getElementById('p1NameLabel').textContent = player1.def.name.toUpperCase();
+  document.getElementById('p2NameLabel').textContent = player2.def.name.toUpperCase();
+}
+
+function restartGame(){
+  const c1 = player1.charKey, c2 = player2.charKey;
+  player1 = new Fighter(c1, 220, 1, controlsP1, 'p1');
+  player2 = new Fighter(c2, 680, -1, controlsP2, 'p2');
+  gameOver = false;
+  timeLeft = 60;
+  document.getElementById('gameOverScreen').style.display = 'none';
+  updateNameLabels();
+}
+
+// ============================================================
+//  BACKGROUND (dark arena)
+// ============================================================
+function drawBackground(){
+  // sky gradient
+  const skyGrad = ctx.createLinearGradient(0,0,0,GROUND_Y);
+  skyGrad.addColorStop(0, "#0a0e22");
+  skyGrad.addColorStop(0.6, "#171b35");
+  skyGrad.addColorStop(1, "#2a2740");
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0,0,W,GROUND_Y);
+
+  // distant moon
+  ctx.save();
+  ctx.fillStyle = "rgba(255,250,220,0.85)";
+  ctx.shadowColor = "rgba(255,250,220,0.6)";
+  ctx.shadowBlur = 30;
+  ctx.beginPath();
+  ctx.arc(W-100, 70, 34, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // distant mountains silhouette
+  ctx.fillStyle = "#11142a";
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y);
+  ctx.lineTo(0, GROUND_Y-60);
+  ctx.lineTo(120, GROUND_Y-140);
+  ctx.lineTo(230, GROUND_Y-70);
+  ctx.lineTo(350, GROUND_Y-160);
+  ctx.lineTo(480, GROUND_Y-90);
+  ctx.lineTo(600, GROUND_Y-150);
+  ctx.lineTo(740, GROUND_Y-80);
+  ctx.lineTo(860, GROUND_Y-130);
+  ctx.lineTo(W, GROUND_Y-60);
+  ctx.lineTo(W, GROUND_Y);
+  ctx.closePath();
+  ctx.fill();
+
+  // stars
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  for(let i=0;i<40;i++){
+    const sx = (i*53 + 17) % W;
+    const sy = (i*97 + 31) % (GROUND_Y-100);
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+
+  // ground
+  const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+  groundGrad.addColorStop(0, "#3a3550");
+  groundGrad.addColorStop(1, "#15131f");
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
+
+  // ground line glow
+  ctx.fillStyle = "rgba(120,140,255,0.25)";
+  ctx.fillRect(0, GROUND_Y, W, 3);
+
+  // ground tile cracks for arena feel
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.lineWidth = 1;
+  for(let i=0;i<W;i+=60){
+    ctx.beginPath();
+    ctx.moveTo(i, GROUND_Y+4);
+    ctx.lineTo(i+20, H);
+    ctx.stroke();
+  }
+}
+
+// ============================================================
+//  HUD UPDATE
+// ============================================================
+function updateHUD(){
+  const p1HealthEl = document.getElementById('p1Health');
+  const p2HealthEl = document.getElementById('p2Health');
+  p1HealthEl.style.width = Math.max(0,player1.health) + '%';
+  p2HealthEl.style.width = Math.max(0,player2.health) + '%';
+
+  function colorForHealth(h){
+    if(h > 50) return "linear-gradient(90deg,#37d637,#a4ff3d)";
+    if(h > 20) return "linear-gradient(90deg,#e6c12c,#ffec3d)";
+    return "linear-gradient(90deg,#d63737,#ff5b3d)";
+  }
+  p1HealthEl.style.background = colorForHealth(player1.health);
+  p2HealthEl.style.background = colorForHealth(player2.health);
+
+  document.getElementById('p1Ssj').textContent = player1.ssj ? "SSJ!" : "";
+  document.getElementById('p2Ssj').textContent = player2.ssj ? "SSJ!" : "";
+
+  document.getElementById('timer').textContent = Math.max(0, Math.ceil(timeLeft));
+}
+
+function showGameOver(text){
+  document.getElementById('winnerText').textContent = text;
+  document.getElementById('gameOverScreen').style.display = 'flex';
+}
+
+// ============================================================
+//  MAIN LOOP
+// ============================================================
+function gameLoop(now){
+  if(!gameOver){
+    const dt = (now - lastTimeTick) / 1000;
+    lastTimeTick = now;
+    timeLeft -= dt;
+
+    player1.update(player2, keys);
+    player2.update(player1, keys);
+
+    // Prevent total overlap: simple push-apart
+    const minDist = 58;
+    const dx = player2.x - player1.x;
+    if(Math.abs(dx) < minDist){
+      const overlap = (minDist - Math.abs(dx)) / 2;
+      const dir = dx >= 0 ? 1 : -1;
+      player1.x -= overlap * dir;
+      player2.x += overlap * dir;
+    }
+
+    drawBackground();
+    // draw the one further back first is irrelevant here (no depth), draw both
+    player1.draw(ctx);
+    player2.draw(ctx);
+
+    updateHUD();
+
+    if(player1.health <= 0 || player2.health <= 0 || timeLeft <= 0){
+      gameOver = true;
+      let winnerText;
+      if(player1.health <= 0 && player2.health <= 0){
+        winnerText = "DRAW!";
+      } else if(player1.health <= 0){
+        winnerText = player2.def.name.toUpperCase() + " WINS!";
+      } else if(player2.health <= 0){
+        winnerText = player1.def.name.toUpperCase() + " WINS!";
+      } else {
+        // time ran out -> higher health wins
+        if(player1.health > player2.health) winnerText = player1.def.name.toUpperCase() + " WINS ON TIME!";
+        else if(player2.health > player1.health) winnerText = player2.def.name.toUpperCase() + " WINS ON TIME!";
+        else winnerText = "DRAW!";
+      }
+      showGameOver(winnerText);
+    }
+  } else {
+    lastTimeTick = now;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+updateNameLabels();
+requestAnimationFrame(gameLoop);
+
+})();
+</script>
+</body>
+</html>
